@@ -1,25 +1,48 @@
 import java.io.File;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class FileSystemReader{
     private File file;
-    private long fileSize = 0;
+//    private long fileSize = 0;
     private boolean threadPerFolder = false;
-    private AtomicLong along = new AtomicLong(fileSize);
+    private AtomicLong along ;
     private ThreadPoolExecutor executor;
+    private AtomicInteger counter;
 
     public FileSystemReader(File file, ThreadPoolExecutor executor) {
         this.file = file;
         this.executor = executor;
+        this.along = new AtomicLong(0);
+
     }
+    public FileSystemReader(File file, ThreadPoolExecutor executor, AtomicLong along) {
+        this.file = file;
+        this.executor = executor;
+        this.along = along;
+    }
+    public FileSystemReader(File file,  AtomicLong along) {
+        this.file = file;
+        this.along = along;
+    }
+
+    public FileSystemReader(File file, AtomicInteger counter, AtomicLong along){
+        this.file = file;
+        this.counter = counter;
+        this.along = along;
+    }
+
+
 
     public FileSystemReader(File file){
         this.file = file;
+        this.counter = new AtomicInteger(0);
+        this.along = new AtomicLong(0);
     }
 
     public long getFileSize() {
-        return fileSize;
+        return along.get();
     }
 
     public FileSystemReader withThreadPerFolder(){
@@ -29,28 +52,25 @@ public class FileSystemReader{
 
     public void calculate(){
         if(!file.isDirectory()){
-            if(along.compareAndSet(fileSize, fileSize + (file.length()))) {
-                fileSize += (file.length());
-            }
+            along.addAndGet(file.length());
         }
         else{
             if(file.listFiles().length>0) {
                 for (File ch : file.listFiles()) {
-                    FileSystemReader reader = new FileSystemReader(ch);
                     if(threadPerFolder == true) {
+                        FileSystemReader reader = new FileSystemReader(ch, counter, along);
                         reader.withThreadPerFolder();
                         Runnable r = () -> {
                             reader.calculate();
-                            if(along.compareAndSet(fileSize, fileSize + (reader.getFileSize()))) {
-                                fileSize += (reader.getFileSize());
-                            }
+                            counter.decrementAndGet();
                         };
+                        counter.incrementAndGet();
                         Thread t = new Thread(r);
                         t.start();
                     }
                     else{
+                        FileSystemReader reader = new FileSystemReader(ch, along);
                         reader.calculate();
-                        fileSize += (reader.getFileSize());
                     }
                 }
             }
@@ -59,17 +79,19 @@ public class FileSystemReader{
 
     public void calculateByExecutor(){
         if(!file.isDirectory()){
-            Task task = new Task(file);
-            executor.execute(task);
-            if(along.compareAndSet(fileSize, fileSize + task.getFileSize())) {
-                fileSize += task.getFileSize();
-            }
+            //Task task = new Task(file, ((length)->compareAndSet(length)));
+            Task task = new Task(file, ((length)->along.addAndGet(length)));
+            executor.submit(task);
         }
         else{
             for (File ch : file.listFiles()){
-                FileSystemReader reader = new FileSystemReader(ch, executor);
+                FileSystemReader reader = new FileSystemReader(ch, executor, along);
                 reader.calculateByExecutor();
             }
         }
+    }
+
+    public boolean completed(){
+        return counter.get() <= 0;
     }
 }
