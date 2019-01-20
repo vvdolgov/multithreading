@@ -78,17 +78,8 @@ public class FileSystemReader{
     }
 
     public void calculateByExecutor(){
-        if(!file.isDirectory()){
-            //Task task = new Task(file, ((length)->compareAndSet(length)));
-            Task task = new Task(file, ((length)->along.addAndGet(length)));
-            executor.submit(task);
-        }
-        else{
-            for (File ch : file.listFiles()){
-                FileSystemReader reader = new FileSystemReader(ch, executor, along);
-                reader.calculateByExecutor();
-            }
-        }
+       Task task = new Task(file, along/*((length)->along.addAndGet(length))*/, executor);
+        executor.submit(task);
     }
 
     public boolean completed(){

@@ -23,7 +23,7 @@ public class MainApp {
             }while(!reader1.completed());
             System.out.println("Total size is " + reader1.getFileSize() + " byte");
             System.out.println("-----------------------------------------------------------");
-            BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+            LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
             ThreadPoolExecutor executor = new ThreadPoolExecutor(10,20,1, TimeUnit.MINUTES, queue);
 
             final FileSystemReader reader2 = new FileSystemReader(new File("C:\\a"),executor);
@@ -31,10 +31,16 @@ public class MainApp {
             thread = new Thread(r, "By ThreadPoolExecutor");
             System.out.println(thread);
             thread.start();
-            thread.join();
+            thread.join(500);
+            while(executor.getActiveCount()!= 0){
+
+            }
             executor.shutdown();
+            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             System.out.println("Total size is " + reader2.getFileSize() + " byte");
             System.out.println("-----------------------------------------------------------");
+            //executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
         }
         catch (Exception e){
             e.printStackTrace();
